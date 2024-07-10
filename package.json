@@ -1,0 +1,31 @@
+{
+  "name": "hardhat-ignition-deploy-everything",
+  "version": "1.0.0",
+  "description": "A hardhat plugin providing the ability to list and manage a bunch of hardhat-ignition deployments to execute at once (even conditional deployment modules)",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Tests are not implemented for this package\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AlephVault/hardhat-ignition-deploy-everything.git"
+  },
+  "keywords": [
+    "hardhat",
+    "ignition",
+    "deploy",
+    "everything"
+  ],
+  "author": "Luis Masuelli",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/AlephVault/hardhat-ignition-deploy-everything/issues"
+  },
+  "homepage": "https://github.com/AlephVault/hardhat-ignition-deploy-everything#readme",
+  "peerDependencies": {
+    "@nomicfoundation/hardhat-ignition": "^0.15.3",
+    "hardhat": "^2.22.6",
+    "hardhat-blueprints": "^1.0.7",
+    "hardhat-enquirer-plus": "^1.1.0"
+  }
+}
