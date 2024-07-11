@@ -26,6 +26,7 @@
     "@nomicfoundation/hardhat-ignition": "^0.15.3",
     "hardhat": "^2.22.6",
     "hardhat-blueprints": "^1.0.7",
+    "hardhat-common-tools": "^1.1.0",
     "hardhat-enquirer-plus": "^1.1.0"
   }
 }

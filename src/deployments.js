@@ -1,7 +1,50 @@
 const fs = require("fs");
-const {getProjectPrefix, removeProjectPrefix, normalizeByProjectPrefix, traverseDirectory, checkNotInteractive} = require("./common");
 const path = require("path");
-const enquirer = require("enquirer");
+
+/**
+ * Returns the base directory of the project. It removes any
+ * trailing slash.
+ * @param hre The hardhat runtime environment.
+ * @returns The project path.
+ */
+function getProjectPrefix(hre) {
+    let root = hre.config.paths.root;
+    while (root.endsWith('/')) root = root.substring(0, root.length - 1);
+    return root;
+}
+
+/**
+ * Removes the project prefix from the given file.
+ * @param file The (absolute) filename.
+ * @param hre The hardhat runtime environment.
+ * @returns A structure {file, stripped?}. If the file starts
+ * with the project prefix then stripped?=true and file= the
+ * file without the project prefix. Otherwise, stripped?=false
+ * and file=file.
+ */
+function removeProjectPrefix(file, hre) {
+    const prefix = getProjectPrefix(hre) + "/";
+    if (file.startsWith(prefix)) {
+        return {file: file.substring(prefix.length), stripped: true}
+    } else {
+        return {file, stripped: false};
+    }
+}
+
+/**
+ * Normalizes a filename with respect to the current project
+ * prefix (and returns the normalized filename or the base
+ * filename if not belonging to the project).
+ * @param file The (relative or absolute) filename.
+ * @param hre The hardhat runtime environment.
+ * @returns A structure {file, stripped?}. If the file belonged
+ * to the project (relatively or absolutely) returns its relative
+ * path and stripped?=true. Otherwise, returns its absolute path
+ * and stripped?=false.
+ */
+function normalizeByProjectPrefix(file, hre) {
+    return removeProjectPrefix(path.resolve(getProjectPrefix(hre), file), hre);
+}
 
 /**
  * Loads the deploy-everything settings from the ignition/deploy-everything.json
@@ -41,11 +84,11 @@ function saveDeployEverythingSettings(settings, hre) {
 /**
  * Adds a module to the deploy-everything settings (loads it before and saves
  * it after).
+ * @param hre The hardhat runtime environment.
  * @param file The module file being added.
  * @param external Whether it is externally imported or not.
- * @param hre The hardhat runtime environment.
  */
-function addDeployEverythingModule(file, external, hre) {
+function addDeployEverythingModule(hre, file, external) {
     external = !!external;
     let module = "";
     if (external) {
@@ -92,11 +135,11 @@ function addDeployEverythingModule(file, external, hre) {
 
 /**
  * Removes a module to the deploy-everything settings.
+ * @param hre The hardhat runtime environment.
  * @param file The module file being removed.
  * @param external Whether the entry to remove is externally imported or not.
- * @param hre The hardhat runtime environment.
  */
-function removeDeployEverythingModule(file, external, hre) {
+function removeDeployEverythingModule(hre, file, external) {
     external = !!external;
     let module = external ? file : normalizeByProjectPrefix(file, hre).file;
 
@@ -121,7 +164,7 @@ async function listDeployEverythingModules(hre) {
     return loadDeployEverythingSettings(hre).contents.map(({filename, external}) => {
         let moduleResults = [];
         try {
-            const module = importModule(filename, external, chainId, hre);
+            const module = importModule(hre, filename, external, chainId);
             moduleResults = Object.values(module.results || {}).map((f) => f.id);
         } catch {}
 
@@ -143,13 +186,13 @@ function addChainId(filename, chainId) {
 
 /**
  * Imports a module (either externally or locally).
+ * @param hre The hardhat runtime environment.
  * @param filename The name of the file to load.
  * @param external Whether it is external or not.
  * @param chainId The chain id.
- * @param hre The hardhat runtime environment.
  * @returns {*} The loaded ignition module.
  */
-function importModule(filename, external, chainId, hre) {
+function importModule(hre, filename, external, chainId) {
     try {
         return external
             ? require(addChainId(filename, chainId))
@@ -174,13 +217,13 @@ function importModule(filename, external, chainId, hre) {
  * @param hre The hardhat runtime environment.
  * @returns {Promise<void>} Nothing (async function).
  */
-async function runDeployEverythingModules(reset, deploymentArgs, hre) {
+async function runDeployEverythingModules(hre, reset, deploymentArgs) {
     const modules = await listDeployEverythingModules(hre);
     const length = modules.length;
     if (!!reset) await hre.ignition.resetDeployment(deploymentArgs.deploymentId, hre);
     const chainId = await hre.common.getChainId();
     for(let idx = 0; idx < length; idx++) {
-        await hre.ignition.deploy(importModule(modules[idx].filename, modules[idx].external, chainId, hre), deploymentArgs);
+        await hre.ignition.deploy(importModule(hre, modules[idx].filename, modules[idx].external, chainId), deploymentArgs);
     }
 }
 
@@ -192,7 +235,7 @@ async function runDeployEverythingModules(reset, deploymentArgs, hre) {
  * @param hre The hardhat runtime environment.
  * @returns {boolean} Whether it is already added or not.
  */
-function isModuleInDeployEverything(file, external, hre) {
+function isModuleInDeployEverything(hre, file, external) {
     external = !!external;
     let module = external ? file : normalizeByProjectPrefix(file, hre).file;
     let settings = loadDeployEverythingSettings(hre);
@@ -201,117 +244,7 @@ function isModuleInDeployEverything(file, external, hre) {
     });
 }
 
-/**
- * Lists all the deployed contract ids in a deployment id.
- * @param deploymentId The deployment id to get the contracts from.
- * @param hre The hardhat runtime environment.
- * @returns {Promise<string[]>} The list of contract ids.
- */
-async function listDeployedContracts(deploymentId, hre) {
-    // 1. Determine the actual deployment id.
-    const chainId = await hre.common.getChainId();
-    deploymentId ||= `chain-${chainId}`;
-
-    // 2. Load the file and get the list of ids.
-    const fullPath = path.resolve(
-        hre.config.paths.root, "ignition", "deployments", deploymentId, "deployed_addresses.json"
-    );
-    return Object.keys(JSON.parse(fs.readFileSync(fullPath, {encoding: 'utf8'})));
-}
-
-/**
- * Asks to select one of the deployed contracts, if the initial one is not
- * valid or not (yet) deployed.
- * @param deployedContractId The initial deployed contract id.
- * @param deploymentId The id of the deployment to focus on.
- * @param forceNonInteractive Whether to raise an error if this call becomes
- * interactive due to the contract id not being valid.
- * @param hre The hardhat runtime environment.
- * @returns {Promise<string>} The id of the selected deployed contract.
- */
-async function selectDeployedContract(deployedContractId, deploymentId, forceNonInteractive, hre) {
-    // 1. Get the current options and also test whether the initially
-    //    set deployed contract id is among them or not.
-    deployedContractId = (deployedContractId || "").trim();
-    const choices = await listDeployedContracts(deploymentId, hre);
-    if (choices.indexOf(deployedContractId) >= 0) return deployedContractId;
-
-    // 2. Go interactive and ask for a new one.
-    checkNotInteractive(forceNonInteractive);
-
-    // 3. Prompt.
-    if (deployedContractId) {
-        console.log(
-            "The id you selected does not belong to a deployed contract (either " +
-            "it is not valid, or you did not run the corresponding ignition deployment " +
-            "task or the deploy-everything task"
-        );
-    }
-    let prompt = new enquirer.Select({
-        name: "deployedContractId",
-        message: "Select a deployed contract:",
-        choices
-    });
-    return await prompt.run();
-}
-
-/**
- * Inspects the ignition addresses for a deployment id and retrieves
-   a contract instance from a given deployed contract (future) id.
- * @param deploymentId The deployment id.
- * @Param contractId The deployed contract (future) id.
- * @param hre The hardhat runtime environment.
- * @return {Promise<*>} A contract instance (async function).
- */
-async function getDeployedContract(deploymentId, contractId, hre) {
-    // 1. Determine the actual deployment id.
-    const chainId = await hre.common.getChainId();
-    deploymentId ||= `chain-${chainId}`;
-
-    // 2. Determine the path and load the deployed addresses, if able.
-    let addresses = {};
-    try {
-        const fullPath = path.resolve(
-            hre.config.paths.root, "ignition", "deployments", deploymentId, "deployed_addresses.json"
-        );
-        addresses = JSON.parse(fs.readFileSync(fullPath, {encoding: 'utf8'}));
-    } catch(e) {}
-
-    // 3. From the deployed addresses, get the address we want.
-    const address = addresses[contractId];
-    if (!address) {
-        throw new Error(
-            `It seems that the contract ${contractId} is not deployed in the ` +
-            `deployment id ${deploymentId}. Ensure the deployment is actually ` +
-            "done for that contract."
-        )
-    }
-
-    // 4. Now, load the artifact and get its ABI:
-    let artifact = {};
-    try {
-        const artifactPath = path.resolve(
-            hre.config.paths.root, "ignition", "deployments", deploymentId, "artifacts", contractId + ".json"
-        );
-        artifact = JSON.parse(fs.readFileSync(artifactPath, {encoding: 'utf8'}));
-    } catch(e) {}
-    const abi = artifact.abi;
-    if (!abi || !abi.length) {
-        throw new Error(
-            `The contract data for the contract id ${contractId} in the deployment `
-            `id ${deploymentId} seems to be corrupted. Either you're in serious `
-            `troubles or this is your local network and you just need to redeploy `
-            `everything to make this work. Keep in touch with your team if this is `
-            `related to corrupted contract deployment data in a mainnet.`
-        );
-    }
-
-    // 5. Instantiate the contract by using the proper provider.
-    return await hre.ethers.getContractAt(abi, address);
-}
-
 module.exports = {
     addDeployEverythingModule, removeDeployEverythingModule, isModuleInDeployEverything,
-    listDeployEverythingModules, runDeployEverythingModules, getDeployedContract,
-    listDeployedContracts, selectDeployedContract
+    listDeployEverythingModules, runDeployEverythingModules
 }
