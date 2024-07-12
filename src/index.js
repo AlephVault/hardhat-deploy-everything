@@ -105,7 +105,6 @@ async function list(hre) {
  */
 async function check(hre, module, external, forceNonInteractive) {
     module = await getModule(hre, module, external, forceNonInteractive);
-    console.log("Module:", module);
     if (isModuleInDeployEverything(hre, module, external)) {
         console.log("The module is added to the full deployment.");
     } else {

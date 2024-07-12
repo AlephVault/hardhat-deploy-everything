@@ -226,7 +226,6 @@ async function runDeployEverythingModules(hre, reset, deploymentArgs) {
     const chainId = await hre.common.getChainId();
     for(let idx = 0; idx < length; idx++) {
         const module = importModule(hre, modules[idx].filename, modules[idx].external, chainId);
-        console.log("Module:", module);
         await hre.ignition.deploy(module, deploymentArgs);
     }
 }
