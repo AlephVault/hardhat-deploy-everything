@@ -166,6 +166,7 @@ ignition.task("deploy-everything", "Manages or executes the full deployment in a
         action, forceNonInteractive, external, module, parameters: parametersFile,
         defaultSender, strategy, deploymentId, reset, verify
     }, hre, runSuper) => {
+        await hre.run('compile');
         try {
             parametersFile = (parametersFile || "").trim();
             action = await new hre.enquirerPlus.Enquirer.GivenOrSelect({
