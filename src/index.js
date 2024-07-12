@@ -49,8 +49,12 @@ async function getModule(hre, module, external, forceNonInteractive) {
  */
 async function add(hre, module, external, forceNonInteractive) {
     module = await getModule(hre, module, external, forceNonInteractive);
-    addDeployEverythingModule(hre, module, external);
-    console.log("The module was successfully added to the full deployment.");
+    try {
+        addDeployEverythingModule(hre, module, external);
+        console.log("The module was successfully added to the full deployment.");
+    } catch(e) {
+        console.error(e.message || e);
+    }
 }
 
 /**
@@ -67,8 +71,12 @@ async function add(hre, module, external, forceNonInteractive) {
  */
 async function remove(hre, module, external, forceNonInteractive) {
     module = await getModule(hre, module, external, forceNonInteractive);
-    removeDeployEverythingModule(hre, module, external);
-    console.log("The module was successfully removed to the full deployment.");
+    try {
+        removeDeployEverythingModule(hre, module, external);
+        console.log("The module was successfully removed to the full deployment.");
+    } catch(e) {
+        console.error(e.message || e);
+    }
 }
 
 /**
@@ -214,7 +222,7 @@ extendEnvironment((hre) => {
         );
     }
     hre.ignition.everything = {
-        addDeployEverythingModule: (module, external) => addDeployEverythingModule(hre, module, external),
+        addDeployEverythingModule: (file, external) => addDeployEverythingModule(hre, file, external),
         removeDeployEverythingModule: (file, external) => removeDeployEverythingModule(hre, file, external),
         listDeployEverythingModules: () => listDeployEverythingModules(hre),
         isModuleInDeployEverything: (file, external) => isModuleInDeployEverything(
