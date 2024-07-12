@@ -6,13 +6,15 @@ A hardhat plugin providing the ability to list and manage a bunch of hardhat-ign
 Run this command to install it from NPM:
 
 ```shell
-npm install hardhat-ignition-deploy-everything@^1.1.0
+npm install --save-dev hardhat-common-tools@^1.1.0 hardhat-enquirer-plus@^1.1.0 hardhat-ignition-deploy-everything@^1.1.0
 ```
 
 # Usage
 This is a hardhat plugin, so the first thing to do is to install it in your hardhat.config.ts file:
 
 ```javascript
+require("hardhat-common-tools");
+require("hardhat-enquirer-plus");
 require("hardhat-ignition-deploy-everything");
 ```
 
