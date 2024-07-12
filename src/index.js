@@ -16,13 +16,10 @@ const ignition = scope("ignition");
  * @returns {Promise<string>} The chosen action (async function).
  */
 async function getModule(hre, module, external, forceNonInteractive) {
-    console.log(external
-        ? "You must set a module. It must be a file belonging to an NPM/yarn-installed package."
-        : "You must set a module. It must be a path of an in-project file.");
     const prompt = external
         ? "Package-relative JavaScript file:"
         : "Project-relative JavaScript file:";
-    await hre.enquirerPlus.Enquirer.GivenOrValidInput({
+    return await new hre.enquirerPlus.Enquirer.GivenOrValidInput({
         given: module, validate: (v) => {
             v = v.trim();
             return v.endsWith(".js") || v.endsWith(".ts");
@@ -108,6 +105,7 @@ async function list(hre) {
  */
 async function check(hre, module, external, forceNonInteractive) {
     module = await getModule(hre, module, external, forceNonInteractive);
+    console.log("Module:", module);
     if (isModuleInDeployEverything(hre, module, external)) {
         console.log("The module is added to the full deployment.");
     } else {
@@ -171,7 +169,7 @@ ignition.task("deploy-everything", "Manages or executes the full deployment in a
     }, hre, runSuper) => {
         try {
             parametersFile = (parametersFile || "").trim();
-            action = await hre.enquirerPlus.Enquirer.GivenOrSelect({
+            action = await new hre.enquirerPlus.Enquirer.GivenOrSelect({
                 given: action, nonInteractive: forceNonInteractive, message: "Select what to do:",
                 choices: [
                     {name: "add", message: "Add a new deployment module (prompted or via --module)"},

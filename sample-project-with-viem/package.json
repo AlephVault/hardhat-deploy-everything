@@ -15,5 +15,8 @@
     "hardhat-common-tools": "^1.1.0",
     "hardhat-enquirer-plus": "^1.1.0",
     "hardhat-ignition-deploy-everything": "file:.."
+  },
+  "dependencies": {
+    "enquirer-plus": "^1.0.10"
   }
 }

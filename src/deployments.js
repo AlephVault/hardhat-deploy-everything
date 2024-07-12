@@ -15,14 +15,14 @@ function getProjectPrefix(hre) {
 
 /**
  * Removes the project prefix from the given file.
- * @param file The (absolute) filename.
  * @param hre The hardhat runtime environment.
+ * @param file The (absolute) filename.
  * @returns A structure {file, stripped?}. If the file starts
  * with the project prefix then stripped?=true and file= the
  * file without the project prefix. Otherwise, stripped?=false
  * and file=file.
  */
-function removeProjectPrefix(file, hre) {
+function removeProjectPrefix(hre, file) {
     const prefix = getProjectPrefix(hre) + "/";
     if (file.startsWith(prefix)) {
         return {file: file.substring(prefix.length), stripped: true}
@@ -42,8 +42,8 @@ function removeProjectPrefix(file, hre) {
  * path and stripped?=true. Otherwise, returns its absolute path
  * and stripped?=false.
  */
-function normalizeByProjectPrefix(file, hre) {
-    return removeProjectPrefix(path.resolve(getProjectPrefix(hre), file), hre);
+function normalizeByProjectPrefix(hre, file) {
+    return removeProjectPrefix(hre, path.resolve(getProjectPrefix(hre), file));
 }
 
 /**
@@ -109,7 +109,7 @@ function addDeployEverythingModule(hre, file, external) {
     else
     {
         // Internal files must belong to the project after normalization.
-        const normalized = normalizeByProjectPrefix(file, hre);
+        const normalized = normalizeByProjectPrefix(hre, file);
         if (!normalized.stripped) {
             throw new Error(`The module does not belong to the project: ${file}`);
         }
@@ -141,7 +141,7 @@ function addDeployEverythingModule(hre, file, external) {
  */
 function removeDeployEverythingModule(hre, file, external) {
     external = !!external;
-    let module = external ? file : normalizeByProjectPrefix(file, hre).file;
+    let module = external ? file : normalizeByProjectPrefix(hre, file).file;
 
     // Load, check presence, remove, and save.
     let settings = loadDeployEverythingSettings(hre);
@@ -194,17 +194,19 @@ function addChainId(filename, chainId) {
  */
 function importModule(hre, filename, external, chainId) {
     try {
-        return external
+        const required = external
             ? require(addChainId(filename, chainId))
             : require(addChainId(path.resolve(hre.config.paths.root, filename), chainId));
+        return required.default === undefined ? required : required.default;
     } catch {
         // Nothing here. Continue with the general load.
     }
 
     try {
-        return external
+        const required = external
             ? require(filename)
             : require(path.resolve(hre.config.paths.root, filename));
+        return required.default === undefined ? required : required.default;
     } catch(e) {
         throw new Error(`Could not import the ${external ? "external" : "in-project"} module: ${filename}.`);
     }
@@ -223,7 +225,9 @@ async function runDeployEverythingModules(hre, reset, deploymentArgs) {
     if (!!reset) await hre.ignition.resetDeployment(deploymentArgs.deploymentId, hre);
     const chainId = await hre.common.getChainId();
     for(let idx = 0; idx < length; idx++) {
-        await hre.ignition.deploy(importModule(hre, modules[idx].filename, modules[idx].external, chainId), deploymentArgs);
+        const module = importModule(hre, modules[idx].filename, modules[idx].external, chainId);
+        console.log("Module:", module);
+        await hre.ignition.deploy(module, deploymentArgs);
     }
 }
 
@@ -237,7 +241,7 @@ async function runDeployEverythingModules(hre, reset, deploymentArgs) {
  */
 function isModuleInDeployEverything(hre, file, external) {
     external = !!external;
-    let module = external ? file : normalizeByProjectPrefix(file, hre).file;
+    let module = external ? file : normalizeByProjectPrefix(hre, file).file;
     let settings = loadDeployEverythingSettings(hre);
     return !!(settings.contents || []).find((element) => {
         return !!element.external === external && module === element.filename;
