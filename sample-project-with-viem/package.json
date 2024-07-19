@@ -11,7 +11,7 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
     "hardhat": "^2.22.5",
-    "hardhat-blueprints": "^1.2.0",
+    "hardhat-blueprints": "^1.2.1",
     "hardhat-common-tools": "^1.4.0",
     "hardhat-enquirer-plus": "^1.4.0",
     "hardhat-ignition-deploy-everything": "file:.."
